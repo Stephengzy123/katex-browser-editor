@@ -2,6 +2,10 @@
 
 A lightweight, offline math editor for writing equations, notes, and worked solutions. Type LaTeX and see the result immediately.
 
+[Try it out online](https://stephengzy123.github.io/katex-browser-editor/KaTeX%20Editor.html).
+
+[Download the offline editor](https://github.com/Stephengzy123/katex-browser-editor/raw/refs/heads/main/KaTeX%20Editor.html).
+
 ## Getting started
 
 Open `KaTeX Editor.html` in a modern browser. No installation, account, server, or internet connection is required.

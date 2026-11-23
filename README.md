@@ -4,11 +4,11 @@ A lightweight, offline math editor for writing equations, notes, and worked solu
 
 [Open the hosted editor](https://stephengzy123.github.io/katex-browser-editor/).
 
-[Download the offline editor](https://github.com/Stephengzy123/katex-browser-editor/raw/refs/heads/main/KaTeX%20Editor.html).
+[Offline download page](https://stephengzy123.github.io/katex-browser-editor/download.html).
 
 ## Getting started
 
-For offline use, download `KaTeX Editor.html` and open it in a modern browser. If the download link opens the file in a browser, right-click the link and choose **Save Link As…**. The standalone file includes all the CSS and JavaScript it needs.
+On the offline download page, click **Download HTML file**, then open the saved `KaTeX Editor.html` in a modern browser. The standalone file includes all the CSS and JavaScript it needs.
 
 ## Features
 

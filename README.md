@@ -148,7 +148,7 @@ Math rendering is powered by [KaTeX](https://katex.org/).
 ## License
 
 The editor code is licensed under the [MIT License](LICENSE), copyright
-2026 Stephen Gu.
+2026 Ziyu Gu.
 
 Bundled KaTeX code uses MIT, and the bundled KaTeX fonts use the SIL Open Font
 License 1.1. See [third-party notices](THIRD_PARTY_NOTICES.md) for the full license

@@ -239,7 +239,7 @@ select{appearance:none;-webkit-appearance:none;padding-right:30px;background-ima
 <div class="tab-bar"><div id="document-tabs" class="document-tabs" role="tablist" aria-label="Documents"></div><button id="new-tab" type="button" disabled>New tab</button><button id="open-settings" type="button" aria-label="Settings" title="Settings" aria-haspopup="dialog" aria-controls="settings-dialog" aria-expanded="false">&#9881;&#65038;</button><span id="tab-count" class="hint">1/10</span></div>
 <div class="toolbar">
 <button id="open" aria-haspopup="dialog">Insert notation</button>
-<button id="insert-image" type="button" title="Insert a local PNG/JPEG in Text + math mode">Insert image</button><input id="image-file" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" hidden>
+<button id="insert-image" type="button" title="Insert a local PNG/JPEG">Insert image</button><input id="image-file" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" hidden>
 <button id="open-format" type="button" aria-haspopup="dialog">Format</button>
 <label>Mode <select id="mode"><option value="equation">Equation</option><option value="document">Text + math</option></select></label>
 <span id="status" role="status"></span>
@@ -260,7 +260,7 @@ select{appearance:none;-webkit-appearance:none;padding-right:30px;background-ima
 <p><strong>Undo/redo:</strong> Cmd-Z / Cmd-Shift-Z on Mac; Ctrl-Z / Ctrl-Shift-Z or Ctrl-Y elsewhere. New edits replace the redo branch. History saves across reloads in this browser, subject to available browser storage. There is no edit-count cap.</p>
 <p>Expand either panel for more room. The preview scrolls internally. It follows the source box height as it grows or shrinks, with the default preview height as its minimum and a page-height limit. Long text-only LaTeX wraps; PDF export fits wide equations to the page.</p>
 <h3>Images</h3>
-<p>Use <strong>Insert image</strong> in Text + math mode, with the cursor outside a formula. Choose a width before inserting (50% by default), then resize or remove it in the preview. Those changes can be undone.</p>
+<p><strong>Insert image</strong> switches Equation tabs to Text + math after confirmation. In Text + math mode, insert images, with the cursor outside a formula. Choose a width before inserting (50% by default), then resize or remove it in the preview. Those changes can be undone.</p>
 <p>Local <strong>PNG/JPEG only</strong>: at most 10 MB, 25 megapixels and 16,000 pixels per side before processing. Images are re-encoded, with metadata removed, and reduced to at most 2,400 pixels per side. Stored images are limited to 5 MB each, 25 MB total and 32 images per tab, including images retained for undo. No SVG, GIF or remote image links.</p>
 <h3>Downloads and backups</h3>
 <p><strong>Download .tex:</strong> source text with image markers omitted. <strong>Download PDF:</strong> opens the browser print dialog; choose Save as PDF. Only the rendered document is printed, including images, on a white page.</p>
@@ -468,11 +468,11 @@ function historyStep(delta){
   if(!sessionReady)return;
   if(delta<0&&historyIndex>0){
     const group=historyEdits[historyIndex-1].group;let selection;
-    do{const edit=historyEdits[--historyIndex];currentSource=applyEdit(currentSource,edit,true);selection=edit.before;}while(historyIndex>0&&historyEdits[historyIndex-1].group===group);
+    do{const edit=historyEdits[--historyIndex];currentSource=applyEdit(currentSource,edit,true);selection=edit.before;if(edit.kind==='insertImageAndConvert')mode.value='equation';}while(historyIndex>0&&historyEdits[historyIndex-1].group===group);
     source.value=currentSource;source.setSelectionRange(selection.start,selection.end,selection.direction);
   }else if(delta>0&&historyIndex<historyEdits.length){
     const group=historyEdits[historyIndex].group;let selection;
-    do{const edit=historyEdits[historyIndex++];currentSource=applyEdit(currentSource,edit);selection=edit.after;}while(historyIndex<historyEdits.length&&historyEdits[historyIndex].group===group);
+    do{const edit=historyEdits[historyIndex++];currentSource=applyEdit(currentSource,edit);selection=edit.after;if(edit.kind==='insertImageAndConvert')mode.value='document';}while(historyIndex<historyEdits.length&&historyEdits[historyIndex].group===group);
     source.value=currentSource;source.setSelectionRange(selection.start,selection.end,selection.direction);
   }else return;
   lastEdit=null;pendingEdit=null;source.focus();render();historyStatus();save();
@@ -783,10 +783,10 @@ function renderDocumentImages(text){
   appendMarkdown(text.slice(offset),preview);
 }
 $('insert-image').addEventListener('click',()=>{
-  if(!sessionReady||mode.value!=='document'||importingImage)return;
+  if(!sessionReady||importingImage)return;
   const start=source.selectionStart,end=source.selectionEnd;
-  if(inMathAt(source.value,start)||inMathAt(source.value,end)){$('status').textContent='Place the cursor outside a math formula to insert an image.';return;}
-  imageSelection={start,end,source:source.value,tabId:activeTabId};$('image-file').click();
+  if(mode.value==='document'&&(inMathAt(source.value,start)||inMathAt(source.value,end))){$('status').textContent='Place the cursor outside a math formula to insert an image.';return;}
+  imageSelection={start,end,source:source.value,tabId:activeTabId,mode:mode.value};$('image-file').click();
 });
 $('image-file').addEventListener('change',async event=>{
   const file=event.target.files[0];event.target.value='';if(!file||!imageSelection)return;
@@ -803,12 +803,12 @@ $('image-file').addEventListener('change',async event=>{
     if(size>imageLimits.stored)throw Error('The processed image is too large (maximum 5 MB). Use a smaller image.');
     const total=Object.values(imageAssets).reduce((sum,asset)=>sum+Math.ceil((asset.data.length-asset.data.indexOf(',')-1)*3/4),0);
     if(total+size>imageLimits.total)throw Error('Session image storage would exceed 25 MB, including images kept for undo.');
-    if(activeTabId!==selection.tabId||source.value!==selection.source||mode.value!=='document')throw Error('The source changed while the image was loading. Choose the insertion point and try again.');
+    if(activeTabId!==selection.tabId||source.value!==selection.source||mode.value!==selection.mode)throw Error('The source changed while the image was loading. Choose the insertion point and try again.');
     pendingImage={selection,asset:{name:file.name.slice(0,256),data}};
     $('new-image-preview').src=data;$('new-image-preview').alt=file.name;
     $('new-image-width').value='50';updateNewImageSize();$('image-dialog').showModal();
   }catch(error){$('status').textContent=error.message||'The image could not be imported.';}
-  finally{if(url)URL.revokeObjectURL(url);importingImage=false;$('insert-image').disabled=mode.value!=='document';}
+  finally{if(url)URL.revokeObjectURL(url);importingImage=false;$('insert-image').disabled=false;}
 });
 
 function updateNewImageSize(){const width=Number($('new-image-width').value);$('new-image-width-value').textContent=width+'%';$('new-image-preview-wrap').style.width=width+'%';}
@@ -818,12 +818,21 @@ $('image-dialog').addEventListener('close',()=>{pendingImage=null;$('new-image-p
 $('confirm-image').addEventListener('click',()=>{
   if(!pendingImage)return;
   const {selection,asset}=pendingImage;
-  if(activeTabId!==selection.tabId||source.value!==selection.source||mode.value!=='document'){$('status').textContent='The source changed. Choose the insertion point and import the image again.';$('image-dialog').close();return;}
+  if(activeTabId!==selection.tabId||source.value!==selection.source||mode.value!==selection.mode){$('status').textContent='The source changed. Choose the insertion point and import the image again.';$('image-dialog').close();return;}
   const id=crypto.randomUUID(),width=Number($('new-image-width').value);
   const before=source.value.slice(0,selection.start),after=source.value.slice(selection.end);
   const marker=(before&&!before.endsWith('\n')?'\n':'')+'[[image:'+id+':'+width+']]'+(after&&!after.startsWith('\n')?'\n':'');
   imageAssets[id]=asset;$('image-dialog').close();
-  replaceSource(marker,selection.start,selection.end);$('status').textContent='Image inserted at '+width+'% width. Resize it below the preview. Images are omitted from .tex exports.';
+  if(selection.mode==='equation'){
+    const equation=selection.source.trim();
+    const display=environmentDelimiters.some(({left,right})=>equation.startsWith(left)&&equation.endsWith(right));
+    const math=display?equation:equation?['$$',unwrapEquation(equation),'$$'].join('\n'):'';
+    mode.value='document';
+    replaceSource([math,marker.trim()].filter(Boolean).join('\n\n'),0,selection.source.length,{editKind:'insertImageAndConvert'});
+  }else{
+    replaceSource(marker,selection.start,selection.end);
+  }
+  $('status').textContent='Image inserted at '+width+'% width. Resize it below the preview. Images are omitted from .tex exports.';
 });
 
 const environmentDelimiters=['align','align*','alignat','alignat*','gather','gather*','equation','equation*','CD'].map(name=>({left:'\\begin{'+name+'}',right:'\\end{'+name+'}',display:true}));
@@ -868,6 +877,15 @@ function fitPrintMath(){
 window.addEventListener('beforeprint',fitPrintMath);
 window.addEventListener('afterprint',restorePrintMath);
 
+function unwrapEquation(value){
+  let tex=value.trim();
+  // Accept a complete equation pasted with common math delimiters, too.
+  for(const [open,close] of [['$$','$$'],['\\[','\\]'],['\\(','\\)'],['$','$']]){
+    if(tex.startsWith(open)&&tex.endsWith(close)&&tex.length>=open.length+close.length){tex=tex.slice(open.length,-close.length);break;}
+  }
+  return tex;
+}
+
 function render(){
   const previewScroll=preview.scrollTop;
   $('error').textContent=''; preview.replaceChildren();
@@ -875,11 +893,7 @@ function render(){
   if(source.value.trim()){
     try{
       if(mode.value==='equation'){
-        let tex=source.value.trim();
-        // Accept a complete equation pasted with common math delimiters, too.
-        for(const [open,close] of [['$$','$$'],['\\[','\\]'],['\\(','\\)'],['$','$']]){
-          if(tex.startsWith(open)&&tex.endsWith(close)&&tex.length>=open.length+close.length){tex=tex.slice(open.length,-close.length);break;}
-        }
+        const tex=unwrapEquation(source.value);
         katex.render(tex,preview,{...options,displayMode:true});
       }else{
         renderDocumentImages(source.value);
@@ -891,7 +905,7 @@ function render(){
   preview.scrollTop=previewScroll;
   $('display-label').hidden=mode.value!=='document';
   $('insert-line').hidden=false;
-  $('insert-image').disabled=mode.value!=='document'||importingImage;
+  $('insert-image').disabled=!sessionReady||importingImage;
 }
 
 source.addEventListener('input',event=>{commitEdit(event.inputType||'insertReplacementText');render();save();});
@@ -1050,7 +1064,7 @@ function replaceSource(text,start,end,options={}){
     source.setSelectionRange(map(before.start),map(before.end),before.direction);
   }
   source.scrollTop=scrollTop;
-  lastEdit=null;commitEdit('insertReplacementText',before);lastEdit=null;render();
+  lastEdit=null;commitEdit(options.editKind||'insertReplacementText',before);lastEdit=null;render();
   if(!focusSource){
     preview.scrollTop=previewScroll;
     const control=preview.querySelector('.editor-image[data-marker-start="'+start+'"] input[type=range]');
